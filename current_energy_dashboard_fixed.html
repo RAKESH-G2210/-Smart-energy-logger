@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f0e8">
+  <title>Current — Home energy, in focus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f0e8;
+      --surface: #fffdf9;
+      --ink: #25251f;
+      --muted: #817e73;
+      --line: #e6dfd3;
+      --terracotta: #bc553c;
+      --terracotta-pale: #f4e6de;
+      --moss: #526b50;
+      --moss-pale: #e8eee4;
+      --gold: #ad7b2e;
+      --shadow: 0 12px 36px rgba(62, 49, 32, .055);
+      font-family: "DM Sans", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    button, input, select { font: inherit; }
+    button, select, input { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid rgba(188, 85, 60, .35);
+      outline-offset: 2px;
+    }
+    .shell { width: min(1160px, calc(100% - 48px)); margin: 0 auto; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 27px 0; border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      display: grid; place-items: center; width: 42px; height: 42px;
+      border-radius: 15px 15px 15px 5px; background: var(--terracotta); color: white;
+      font-size: 21px; transform: rotate(-5deg);
+    }
+    .brand-name { font-family: "DM Serif Display", Georgia, serif; font-size: 25px; letter-spacing: -.4px; }
+    .brand-caption { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+    .connection { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 3px; background: var(--moss); transform: rotate(45deg); }
+    .status-dot.offline { background: var(--terracotta); }
+    main { padding: 40px 0 56px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 27px; }
+    .eyebrow { margin: 0 0 8px; color: var(--terracotta); font-size: 11px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-family: "DM Serif Display", Georgia, serif; font-size: clamp(34px, 5vw, 48px); font-weight: 400; letter-spacing: -.7px; }
+    .intro-copy { margin: 0; color: var(--muted); font-size: 14px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .button {
+      min-height: 42px; padding: 0 16px; border: 1px solid var(--line); border-radius: 13px;
+      background: var(--surface); cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: transform .18s ease, border-color .18s ease;
+    }
+    .button:hover { transform: translateY(-1px); border-color: #c8b9a5; }
+    .button.primary { border-color: var(--ink); background: var(--ink); color: white; }
+    .button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between;
+      gap: 18px; margin-bottom: 20px; padding: 18px 20px;
+      border: 1px solid var(--line); border-radius: 18px 18px 18px 6px; background: var(--surface);
+    }
+    .toolbar-group { display: flex; flex-wrap: wrap; align-items: end; gap: 15px; }
+    .field { display: grid; gap: 6px; }
+    .field label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .field input, .field select {
+      min-height: 40px; min-width: 150px; padding: 0 11px; border: 1px solid var(--line);
+      border-radius: 10px; background: #fff; font-size: 13px;
+    }
+    .field input[type="password"] { min-width: 210px; }
+    .field input[type="number"] { min-width: 105px; width: 105px; }
+    .rate-field { display: flex; align-items: end; gap: 8px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .metric {
+      min-height: 170px; padding: 20px; border: 1px solid var(--line);
+      border-radius: 18px 18px 18px 6px; background: var(--surface); box-shadow: var(--shadow);
+    }
+    .metric-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .metric-label { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .metric-icon {
+      display: grid; place-items: center; width: 34px; height: 34px;
+      border-radius: 12px 12px 12px 4px; font-size: 16px;
+    }
+    .power .metric-icon { background: var(--terracotta-pale); color: var(--terracotta); }
+    .energy .metric-icon { background: var(--moss-pale); color: var(--moss); }
+    .cost .metric-icon { background: #f3ead8; color: var(--gold); }
+    .relay .metric-icon { background: #eeece6; color: var(--ink); }
+    .metric-value { margin: 18px 0 5px; font-family: "DM Serif Display", Georgia, serif; font-size: clamp(28px, 3vw, 36px); line-height: 1; }
+    .metric-value small { font-family: "DM Sans", sans-serif; font-size: 14px; font-weight: 500; }
+    .metric-note { margin: 0; color: var(--muted); font-size: 11px; }
+    .relay-control { display: flex; align-items: center; gap: 10px; }
+    .relay-control .metric-value { margin: 18px 0 5px; }
+    .switch { position: relative; display: inline-flex; width: 44px; height: 26px; flex: 0 0 auto; }
+    .switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .slider { position: absolute; inset: 0; border-radius: 20px; background: #d5d0c6; cursor: pointer; transition: .2s; }
+    .slider::before {
+      position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 7px;
+      background: white; content: ""; transition: .2s;
+    }
+    .switch input:checked + .slider { background: var(--moss); }
+    .switch input:checked + .slider::before { transform: translateX(18px); }
+    .switch input:focus-visible + .slider { outline: 3px solid rgba(188, 85, 60, .35); outline-offset: 2px; }
+    .chart-card {
+      padding: 22px; border: 1px solid var(--line); border-radius: 20px 20px 20px 6px;
+      background: var(--surface); box-shadow: var(--shadow);
+    }
+    .chart-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    h2 { margin-bottom: 5px; font-family: "DM Serif Display", Georgia, serif; font-size: 23px; font-weight: 400; }
+    .chart-subtitle { margin: 0; color: var(--muted); font-size: 12px; }
+    .chart-wrap { position: relative; height: 310px; }
+    .notice { min-height: 20px; margin: 14px 0 0; color: var(--muted); font-size: 12px; }
+    .notice.error { color: #a83f2d; }
+    footer { padding: 0 0 28px; color: var(--muted); font-size: 11px; text-align: center; }
+    @media (max-width: 850px) {
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .toolbar { align-items: stretch; }
+      .toolbar-group { flex: 1 1 100%; }
+    }
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 28px, 1160px); }
+      .topbar { padding: 18px 0; }
+      .brand-caption { display: none; }
+      .connection { max-width: 130px; font-size: 11px; }
+      main { padding-top: 28px; }
+      .intro { align-items: start; flex-direction: column; }
+      .toolbar-group { align-items: stretch; }
+      .field, .field input, .field select, .field input[type="password"] { width: 100%; }
+      .rate-field { flex: 1 1 100%; }
+      .rate-field .field { flex: 1; }
+      .metrics { gap: 10px; }
+      .metric { min-height: 154px; padding: 15px; }
+      .metric-value { font-size: 29px; }
+      .metric-icon { width: 30px; height: 30px; }
+      .chart-card { padding: 17px 14px; }
+      .chart-wrap { height: 260px; }
+      .chart-heading { align-items: start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">↗</div>
+        <div>
+          <div class="brand-name">Current</div>
+          <div class="brand-caption">A little more energy-aware</div>
+        </div>
+      </div>
+      <div class="connection" role="status" aria-live="polite">
+        <span class="status-dot" id="statusIndicator" aria-hidden="true"></span>
+        <span id="statusText">Simulation ready</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="pageTitle">
+        <div>
+          <p class="eyebrow">Your home, at a glance</p>
+          <h1 id="pageTitle">Energy, in focus.</h1>
+          <p class="intro-copy">A clear picture of what your appliances are using.</p>
+        </div>
+        <div class="actions">
+          <button class="button" id="resetButton" type="button">Reset session</button>
+          <button class="button primary" id="exportButton" type="button">Download CSV</button>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Dashboard settings">
+        <div class="toolbar-group">
+          <div class="field">
+            <label for="modeSelect">Data source</label>
+            <select id="modeSelect">
+              <option value="sim">Simulation</option>
+              <option value="blynk">Blynk Cloud</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="blynkToken">Blynk auth token</label>
+            <input type="password" id="blynkToken" placeholder="Enter device token" autocomplete="off">
+          </div>
+        </div>
+        <div class="toolbar-group">
+          <div class="rate-field">
+            <div class="field">
+              <label for="tariffInput">Rate (per kWh)</label>
+              <input type="number" id="tariffInput" min="0" step="0.01" value="0.15">
+            </div>
+            <button class="button" id="applyTariffButton" type="button">Apply rate</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Current energy metrics">
+        <article class="metric power">
+          <div class="metric-top"><span class="metric-label">Instant power</span><span class="metric-icon" aria-hidden="true">ϟ</span></div>
+          <p class="metric-value"><span id="valPower">0.0</span> <small>W</small></p>
+          <p class="metric-note">Live appliance load · V1</p>
+        </article>
+        <article class="metric energy">
+          <div class="metric-top"><span class="metric-label">Session energy</span><span class="metric-icon" aria-hidden="true">◒</span></div>
+          <p class="metric-value"><span id="valEnergy">0.000</span> <small>kWh</small></p>
+          <p class="metric-note">Since your last reset · V3</p>
+        </article>
+        <article class="metric cost">
+          <div class="metric-top"><span class="metric-label">Session cost</span><span class="metric-icon" aria-hidden="true">$</span></div>
+          <p class="metric-value">$<span id="valCost">0.00</span></p>
+          <p class="metric-note">Estimated at your current rate</p>
+        </article>
+        <article class="metric relay">
+          <div class="metric-top"><span class="metric-label">Appliance relay</span><span class="metric-icon" aria-hidden="true">⏻</span></div>
+          <div class="relay-control">
+            <label class="switch" aria-label="Toggle appliance relay">
+              <input type="checkbox" id="relayToggle">
+              <span class="slider"></span>
+            </label>
+            <p class="metric-value" id="relayText">OFF</p>
+          </div>
+          <p class="metric-note">Switch control · V2</p>
+        </article>
+      </section>
+
+      <section class="chart-card" aria-labelledby="chartTitle">
+        <div class="chart-heading">
+          <div>
+            <h2 id="chartTitle">Today’s energy story</h2>
+            <p class="chart-subtitle">Power and session energy over time</p>
+          </div>
+          <p class="chart-subtitle">Updates every 2 seconds</p>
+        </div>
+        <div class="chart-wrap"><canvas id="telemetryChart" aria-label="Chart of power and session energy" role="img"></canvas></div>
+        <p class="notice" id="notice" role="status" aria-live="polite">Simulation is ready. Turn on the relay to see sample readings.</p>
+      </section>
+
+    </main>
+    <footer>Local dashboard · Your Blynk token is kept only in this page session.</footer>
+  </div>
+
+  <script>
+    const POLL_INTERVAL_MS = 2000;
+    const MAX_POINTS = 60;
+    const COLORS = {
+      ink: "#25251f",
+      muted: "#817e73",
+      line: "#e6dfd3",
+      terracotta: "#bc553c",
+      terracottaFill: "rgba(188, 85, 60, .10)",
+      moss: "#526b50"
+    };
+
+    let isSimMode = true;
+    let blynkToken = "";
+    let rate = 0.15;
+    let powerW = 0;
+    let energyKWh = 0;
+    let isRelayOn = false;
+    let deviceEnergyBaseline = null;
+    let lastSampleAt = null;
+    let polling = false;
+    let history = [];
+
+    const elements = {
+      mode: document.getElementById("modeSelect"),
+      token: document.getElementById("blynkToken"),
+      tariff: document.getElementById("tariffInput"),
+      power: document.getElementById("valPower"),
+      energy: document.getElementById("valEnergy"),
+      cost: document.getElementById("valCost"),
+      relay: document.getElementById("relayToggle"),
+      relayText: document.getElementById("relayText"),
+      statusIndicator: document.getElementById("statusIndicator"),
+      statusText: document.getElementById("statusText"),
+      notice: document.getElementById("notice"),
+      exportButton: document.getElementById("exportButton")
+    };
+
+    const chartContext = document.getElementById("telemetryChart").getContext("2d");
+    const telemetryChart = new Chart(chartContext, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Power (W)",
+            data: [],
+            borderColor: COLORS.terracotta,
+            backgroundColor: COLORS.terracottaFill,
+            borderWidth: 2,
+            pointRadius: 2,
+            pointBackgroundColor: COLORS.terracotta,
+            fill: true,
+            tension: .35,
+            yAxisID: "power"
+          },
+          {
+            label: "Session energy (kWh)",
+            data: [],
+            borderColor: COLORS.moss,
+            borderWidth: 2,
+            pointRadius: 1,
+            tension: .25,
+            yAxisID: "energy"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: COLORS.ink, usePointStyle: true, pointStyle: "rectRounded", boxWidth: 8 } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: COLORS.muted, maxTicksLimit: 8 } },
+          power: {
+            type: "linear", position: "left",
+            grid: { color: COLORS.line },
+            ticks: { color: COLORS.terracotta },
+            title: { display: true, text: "Watts", color: COLORS.muted }
+          },
+          energy: {
+            type: "linear", position: "right",
+            grid: { drawOnChartArea: false },
+            ticks: { color: COLORS.moss },
+            title: { display: true, text: "kWh", color: COLORS.muted }
+          }
+        }
+      }
+    });
+
+    function setNotice(message, isError = false) {
+      elements.notice.textContent = message;
+      elements.notice.classList.toggle("error", isError);
+    }
+
+    function setConnection(message, offline = false) {
+      elements.statusText.textContent = message;
+      elements.statusIndicator.classList.toggle("offline", offline);
+    }
+
+    function render() {
+      elements.power.textContent = powerW.toFixed(1);
+      elements.energy.textContent = energyKWh.toFixed(3);
+      elements.cost.textContent = (energyKWh * rate).toFixed(2);
+      elements.relay.checked = isRelayOn;
+      elements.relayText.textContent = isRelayOn ? "ON" : "OFF";
+    }
+
+    function recordSample(now) {
+      history.push({
+        timestamp: now.toISOString(),
+        label: now.toLocaleTimeString(),
+        power: powerW,
+        energy: energyKWh,
+        cost: energyKWh * rate,
+        relay: isRelayOn ? "ON" : "OFF"
+      });
+      if (history.length > MAX_POINTS) history.shift();
+      telemetryChart.data.labels = history.map((sample) => sample.label);
+      telemetryChart.data.datasets[0].data = history.map((sample) => sample.power);
+      telemetryChart.data.datasets[1].data = history.map((sample) => sample.energy);
+      telemetryChart.update("none");
+    }
+
+    function parseBlynkValue(payload, pin) {
+      const value = Array.isArray(payload) ? payload[0] : payload;
+      const number = Number(value);
+      if (value === null || value === undefined || value === "" || !Number.isFinite(number)) {
+        throw new Error(`Blynk returned an invalid value for V${pin}.`);
+      }
+      return number;
+    }
+
+    async function readBlynkPin(pin) {
+      const url = new URL("https://blynk.cloud/external/api/get");
+      url.searchParams.set("token", blynkToken);
+      url.searchParams.set(`v${pin}`, "");
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Blynk read for V${pin} failed (HTTP ${response.status}).`);
+      const payload = await response.json();
+      return parseBlynkValue(payload, pin);
+    }
+
+    async function writeBlynkPin(pin, value) {
+      const url = new URL("https://blynk.cloud/external/api/update");
+      url.searchParams.set("token", blynkToken);
+      url.searchParams.set(`v${pin}`, String(value));
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Blynk update for V${pin} failed (HTTP ${response.status}).`);
+    }
+
+    function integrateEnergy(now) {
+      if (lastSampleAt !== null && powerW >= 0) {
+        const elapsedHours = (now.getTime() - lastSampleAt) / 3600000;
+        energyKWh += powerW * elapsedHours / 1000;
+      }
+      lastSampleAt = now.getTime();
+    }
+
+    async function poll() {
+      if (polling) return;
+      polling = true;
+      const now = new Date();
+      try {
+        if (isSimMode) {
+          powerW = isRelayOn ? 450 + Math.random() * 150 : 0;
+          integrateEnergy(now);
+          setConnection("Simulation active");
+        } else {
+          const [power, relay, deviceEnergy] = await Promise.all([
+            readBlynkPin(1),
+            readBlynkPin(2),
+            readBlynkPin(3)
+          ]);
+          if (isSimMode) return;
+          powerW = Math.max(0, power);
+          isRelayOn = relay === 0;
+          if (deviceEnergyBaseline === null) deviceEnergyBaseline = deviceEnergy;
+          energyKWh = Math.max(0, deviceEnergy - deviceEnergyBaseline);
+          lastSampleAt = now.getTime();
+          setConnection("Blynk connected");
+        }
+        render();
+        recordSample(now);
+      } catch (error) {
+        setConnection("Connection issue", true);
+        setNotice(error.message || "Could not read the latest device values.", true);
+      } finally {
+        polling = false;
+      }
+    }
+
+    async function toggleMode() {
+      const requestedMode = elements.mode.value;
+      if (requestedMode === "blynk") {
+        const token = elements.token.value.trim();
+        if (!token) {
+          elements.mode.value = "sim";
+          setConnection("Simulation ready");
+          setNotice("Enter your Blynk auth token before connecting.", true);
+          elements.token.focus();
+          return;
+        }
+        blynkToken = token;
+        isSimMode = false;
+        deviceEnergyBaseline = null;
+        lastSampleAt = null;
+        setConnection("Connecting to Blynk…");
+        setNotice("Reading live values from your Blynk device.");
+        await poll();
+      } else {
+        isSimMode = true;
+        blynkToken = "";
+        deviceEnergyBaseline = null;
+        lastSampleAt = null;
+        setConnection("Simulation active");
+        setNotice("Simulation is running locally. Turn on the relay to see sample readings.");
+        await poll();
+      }
+    }
+
+    async function handleRelayToggle(checked) {
+      const previousState = isRelayOn;
+      isRelayOn = checked;
+      render();
+      if (isSimMode) {
+        setNotice(isRelayOn ? "Simulated appliance switched on." : "Simulated appliance switched off.");
+        return;
+      }
+      try {
+        await writeBlynkPin(2, isRelayOn ? 0 : 1);
+        setNotice(`Relay switched ${isRelayOn ? "on" : "off"}.`);
+      } catch (error) {
+        isRelayOn = previousState;
+        render();
+        setNotice(error.message || "Could not update the relay.", true);
+      }
+    }
+
+    async function updateTariff() {
+      const nextRate = Number(elements.tariff.value);
+      if (!Number.isFinite(nextRate) || nextRate < 0) {
+        setNotice("Enter a valid, non-negative electricity rate.", true);
+        elements.tariff.focus();
+        return;
+      }
+      rate = nextRate;
+      render();
+      if (!isSimMode) {
+        try {
+          await writeBlynkPin(5, rate);
+          setNotice(`Rate updated to ${rate.toFixed(2)} per kWh and sent to Blynk V5.`);
+        } catch (error) {
+          setNotice(error.message || "Rate saved locally, but the Blynk update failed.", true);
+        }
+      } else {
+        setNotice(`Electricity rate set to ${rate.toFixed(2)} per kWh.`);
+      }
+      if (history.length) {
+        history[history.length - 1].cost = energyKWh * rate;
+      }
+    }
+
+    function resetSession() {
+      energyKWh = 0;
+      history = [];
+      lastSampleAt = null;
+      if (!isSimMode) deviceEnergyBaseline = null;
+      telemetryChart.data.labels = [];
+      telemetryChart.data.datasets.forEach((dataset) => { dataset.data = []; });
+      telemetryChart.update();
+      render();
+      setNotice(isSimMode
+        ? "Session totals and chart cleared."
+        : "Session reset. A fresh Blynk energy reading will establish the new baseline.");
+      poll();
+    }
+
+    function exportCsv() {
+      if (history.length === 0) {
+        setNotice("There are no readings to export yet.", true);
+        return;
+      }
+      const rows = [
+        ["Timestamp", "Power (W)", "Session energy (kWh)", "Session cost", "Relay"],
+        ...history.map((sample) => [
+          sample.timestamp,
+          sample.power.toFixed(2),
+          sample.energy.toFixed(6),
+          sample.cost.toFixed(4),
+          sample.relay
+        ])
+      ];
+      const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      const objectUrl = URL.createObjectURL(blob);
+      link.href = objectUrl;
+      link.download = `current-energy-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      setNotice(`Exported ${history.length} readings as CSV.`);
+    }
+
+    document.getElementById("modeSelect").addEventListener("change", toggleMode);
+    document.getElementById("relayToggle").addEventListener("change", (event) => handleRelayToggle(event.target.checked));
+    document.getElementById("applyTariffButton").addEventListener("click", updateTariff);
+    document.getElementById("resetButton").addEventListener("click", resetSession);
+    elements.exportButton.addEventListener("click", exportCsv);
+    elements.token.addEventListener("change", () => {
+      if (!isSimMode) elements.mode.value = "sim";
+    });
+
+    render();
+    poll();
+    window.setInterval(poll, POLL_INTERVAL_MS);
+  </script>
+</body>
+</html>
